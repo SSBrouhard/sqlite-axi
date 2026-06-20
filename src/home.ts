@@ -4,8 +4,8 @@ import { objectCounts, openDb, rowCount, tableNames } from "./db.js";
 
 const HELP = [
   "Run `sqlite-axi tables` to list tables with row counts",
-  "Run `sqlite-axi schema <table>` for columns, keys, and indexes",
-  "Run `sqlite-axi sample <table>` to preview rows",
+  "Run `sqlite-axi schema <table-or-view>` for columns, keys, and indexes",
+  "Run `sqlite-axi sample <table-or-view>` to preview rows",
   'Run `sqlite-axi query "select ..."` to run a read-only query',
 ];
 

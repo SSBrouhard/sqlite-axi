@@ -5,6 +5,9 @@ describe("validateReadOnly", () => {
   it("accepts SELECT, EXPLAIN SELECT, EXPLAIN QUERY PLAN SELECT", () => {
     expect(() => validateReadOnly("select * from users")).not.toThrow();
     expect(() => validateReadOnly("  -- c\n SELECT 1")).not.toThrow();
+    expect(() => validateReadOnly("select ';' as semi")).not.toThrow();
+    expect(() => validateReadOnly("select '/* not a comment */' as body")).not.toThrow();
+    expect(() => validateReadOnly("select 1; -- trailing comment")).not.toThrow();
     expect(() => validateReadOnly("EXPLAIN SELECT 1")).not.toThrow();
     expect(() => validateReadOnly("explain query plan select 1")).not.toThrow();
   });

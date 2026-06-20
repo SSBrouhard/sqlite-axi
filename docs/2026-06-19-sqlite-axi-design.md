@@ -88,9 +88,9 @@ tables: 7 (4210 rows total)
 largest[5]{table,rows}:
   events,3800
   users,210
-objects: 2 views, 1 trigger
+objects: 2 views, 1 triggers
 help[2]:
-  Run `sqlite-axi schema <table>` for columns, keys, and indexes
+  Run `sqlite-axi schema <table-or-view>` for columns, keys, and indexes
   Run `sqlite-axi query "select ..."` to run a read-only query
 ```
 
@@ -104,13 +104,16 @@ count: 7 tables
 tables[7]{table,rows,columns}:
   users,210,6
   events,3800,5
-help[1]: Run `sqlite-axi schema <table>` for details
+help[1]: Run `sqlite-axi schema <table-or-view>` for details
 ```
 
-### `schema [db] <table>`
+### `schema [db] <table-or-view>`
 
-Detail view via `PRAGMA table_info` / `index_list` / `foreign_key_list`. The table is required;
-omitting it → `VALIDATION_ERROR` (exit 2) suggesting `sqlite-axi tables` to list tables first.
+Detail view via `PRAGMA table_info` / `index_list` / `index_xinfo` / `foreign_key_list`. The
+object name is required; omitting it → `VALIDATION_ERROR` (exit 2) suggesting `sqlite-axi tables`
+to list tables first. Expression indexes render their indexed expression slots as `<expression>`.
+Foreign keys that omit a target column resolve to the referenced table's single primary-key column,
+falling back to `<primary key>` only when no single column can be named.
 
 ```
 table: users
@@ -125,9 +128,9 @@ foreignKeys[1]{column,references}:
   team_id,teams.id
 ```
 
-### `sample [db] <table> [--limit 10]`
+### `sample [db] <table-or-view> [--limit 10] [--full]`
 
-Quick capped peek (`SELECT * FROM <table> LIMIT n`, table name validated against the schema).
+Quick capped peek (`SELECT * FROM <table-or-view> LIMIT n`, object name validated against the schema).
 
 ```
 table: users
@@ -154,8 +157,8 @@ result[12]{id,email}:
 
 1. **Hard layer:** `new Database(path, { readonly: true })` — the engine rejects every write.
 2. **Allowlist (`src/validate.ts`):** after stripping leading comments and confirming a **single**
-   statement (a `;` followed by more content is rejected), the SQL must match exactly one of three
-   shapes (case-insensitive):
+   statement (quote/comment-aware semicolon scanning; trailing comments after a final semicolon are
+   fine), the SQL must match exactly one of three shapes (case-insensitive):
    - `SELECT ...`
    - `EXPLAIN SELECT ...`
    - `EXPLAIN QUERY PLAN SELECT ...`
@@ -171,21 +174,21 @@ EXPLAIN QUERY PLAN SELECT)`, code `READ_ONLY`, exit 2.
 
 ## Identifier safety (table commands)
 
-`sample` and the `schema` PRAGMAs must **never** interpolate a user-supplied table name into SQL
+`sample` and the `schema` PRAGMAs must **never** interpolate a user-supplied object name into SQL
 as raw text. The flow:
 
-1. **Exact schema match first** — resolve the requested name against the known table list
+1. **Exact schema match first** — resolve the requested name against known tables/views
    (`sqlite_master`); no match → `NOT_FOUND` (exit 1) suggesting `tables`.
 2. **Schema introspection** uses the table-valued pragma functions
    (`pragma_table_info(?)`, `pragma_index_list(?)`, `pragma_foreign_key_list(?)`) with the name
    passed as a **bound parameter** — no string interpolation at all.
-3. **`sample`** needs `SELECT * FROM <table>`, and SQLite cannot bind an identifier, so the name —
+3. **`sample`** needs `SELECT * FROM <table-or-view>`, and SQLite cannot bind an identifier, so the name —
    already proven to exist by step 1 — is emitted as a **quoted identifier** (`"` with internal
    `"` doubled). The row limit is a bound `?` parameter.
 
 ## Formatting (P3)
 
-- Cells longer than 200 chars truncate with ` …` (disabled by `query --full`).
+- Cells longer than 200 chars truncate with ` …` (disabled by `sample --full` / `query --full`).
 - `BLOB` → `<blob N bytes>`; `NULL` → empty cell; numbers/reals rendered as-is.
 - Output is TOON only — no `--json` (the SDK does not provide it for free).
 
@@ -204,7 +207,7 @@ implementation. Tests cover weird column names and aliases (`select 1 as "a,b"`,
 | No database discovered | `NO_DATABASE` | 1 |
 | Multiple discovered, none chosen | `DB_AMBIGUOUS` | 2 |
 | Path is not a file / not valid SQLite | `NOT_FOUND` / `INVALID_DB` | 1 |
-| Unknown table (schema/sample) | `NOT_FOUND` | 1 |
+| Unknown table/view (schema/sample) | `NOT_FOUND` | 1 |
 | Non-read-only or multi-statement SQL | `READ_ONLY` | 2 |
 | SQL syntax / execution error | `QUERY_ERROR` | 1 |
 
@@ -223,9 +226,10 @@ TDD with vitest against **real temporary SQLite files** seeded per test (better-
 them in a writable temp dir; the tool still opens targets read-only). Cover:
 
 - Discovery: single / none / multiple, junk-dir skipping; `[db]` vs table resolution.
-- Read-only validator: accept `SELECT`, `EXPLAIN SELECT`, `EXPLAIN QUERY PLAN SELECT`; reject
-  `EXPLAIN UPDATE`, DML/DDL, `PRAGMA`, `WITH`, stacked statements, `ATTACH`.
-- Identifier safety: unknown table → `NOT_FOUND`; a table named with quotes/spaces is sampled
+- Read-only validator: accept `SELECT`, `EXPLAIN SELECT`, `EXPLAIN QUERY PLAN SELECT`, semicolons
+  inside strings, and trailing comments after a final semicolon; reject `EXPLAIN UPDATE`, DML/DDL,
+  `PRAGMA`, `WITH`, stacked statements, `ATTACH`.
+- Identifier safety: unknown table/view → `NOT_FOUND`; a table named with quotes/spaces is sampled
   correctly via the quoted identifier; schema introspection binds the name as a parameter.
 - Column-name handling: `select 1 as "a,b"` and names with spaces/quotes fall back to row-object
   form and still encode to valid TOON.

@@ -34,13 +34,14 @@ export function parseFlags(args: string[], booleans: string[] = []): ParsedArgs 
   return { positionals, flags };
 }
 
-/** Parse a `--limit` flag into a clamped positive integer. */
+/** Parse a decimal `--limit` flag into a clamped positive integer. */
 export function parseLimit(
   value: string | boolean | undefined,
   fallback: number,
   max: number,
 ): number {
   if (typeof value !== "string") return fallback;
+  if (!/^\d+$/.test(value)) return fallback;
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);

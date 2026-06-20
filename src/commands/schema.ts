@@ -8,14 +8,19 @@ export function schemaCommand(args: string[]): Record<string, unknown> {
   const { dbPath, rest } = resolveDb(positionals, flags);
   const table = rest[0];
   if (!table) {
-    throw new AxiError("a table name is required", "VALIDATION_ERROR", [
-      "Run `sqlite-axi tables` to list tables, then `sqlite-axi schema <table>`",
+    throw new AxiError("a table or view name is required", "VALIDATION_ERROR", [
+      "Run `sqlite-axi tables` to list tables, then `sqlite-axi schema <table-or-view>`",
+    ]);
+  }
+  if (rest.length > 1) {
+    throw new AxiError("schema accepts exactly one table or view name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi schema [db] <table-or-view>`",
     ]);
   }
   const db = openDb(dbPath);
   try {
     if (!tableExists(db, table)) {
-      throw new AxiError(`table "${table}" not found`, "NOT_FOUND", [
+      throw new AxiError(`table or view "${table}" not found`, "NOT_FOUND", [
         "Run `sqlite-axi tables` to list available tables",
       ]);
     }

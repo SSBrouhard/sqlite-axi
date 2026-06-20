@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { expect } from "vitest";
 
 /** Create a temp SQLite file seeded with a small schema and return its path. */
 export function seedDb(): string {
@@ -41,4 +42,15 @@ export function seedWeirdDb(): string {
   db.prepare('INSERT INTO "odd name" ("a,b", normal) VALUES (?, ?)').run("hello", 1);
   db.close();
   return path;
+}
+
+export function expectAxiError(fn: () => unknown, code: string): void {
+  let error: unknown;
+  try {
+    fn();
+  } catch (e) {
+    error = e;
+  }
+  expect(error).toBeDefined();
+  expect((error as { code?: string }).code).toBe(code);
 }

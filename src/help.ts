@@ -4,8 +4,8 @@ Usage: sqlite-axi <command> [db] [args] [flags]
 
 Commands:
   tables [db]                    List tables with row and column counts
-  schema [db] <table>            Columns, indexes, foreign keys, row count
-  sample [db] <table> [--limit]  Preview rows (default 10)
+  schema [db] <table-or-view>    Columns, indexes, foreign keys, row count
+  sample [db] <table-or-view> [--limit]  Preview rows (default 10)
   query  [db] "<sql>" [--limit]  Run a read-only SELECT (default 50 rows)
   setup hooks                    Install agent session-start hooks
 
@@ -23,20 +23,20 @@ Examples:
   sqlite-axi tables
   sqlite-axi tables app.db
 `,
-  schema: `sqlite-axi schema [db] <table>
+  schema: `sqlite-axi schema [db] <table-or-view>
 
-Show a table's columns (type, pk, notnull, default), indexes, and foreign keys.
+Show a table or view's columns (type, pk, notnull, default), indexes, and foreign keys.
 
 Examples:
   sqlite-axi schema users
   sqlite-axi schema app.db users
 `,
-  sample: `sqlite-axi sample [db] <table> [--limit 10] [--full]
+  sample: `sqlite-axi sample [db] <table-or-view> [--limit 10] [--full]
 
-Preview rows from a table. Cells over 200 chars truncate unless --full is given.
+Preview rows from a table or view. Cells over 200 chars truncate unless --full is given.
 
 Flags:
-  --limit <n>   Rows to show (default 10, max 1000)
+  --limit <n>   Decimal rows to show (default 10, max 1000)
   --full        Do not truncate cell values
 
 Examples:
@@ -49,7 +49,7 @@ Run a single read-only query: SELECT, EXPLAIN SELECT, or EXPLAIN QUERY PLAN SELE
 Writes, PRAGMA, WITH, and stacked statements are rejected.
 
 Flags:
-  --limit <n>   Max rows returned (default 50, max 1000)
+  --limit <n>   Decimal max rows returned (default 50, max 1000)
   --full        Do not truncate cell values
 
 Examples:

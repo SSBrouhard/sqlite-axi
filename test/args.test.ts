@@ -16,10 +16,12 @@ describe("parseFlags", () => {
 });
 
 describe("parseLimit", () => {
-  it("clamps to [1, max] and falls back on junk", () => {
+  it("clamps to [1, max] and falls back on invalid values", () => {
     expect(parseLimit("5", 10, 100)).toBe(5);
     expect(parseLimit("999", 10, 100)).toBe(100);
     expect(parseLimit(undefined, 10, 100)).toBe(10);
     expect(parseLimit("abc", 10, 100)).toBe(10);
+    expect(parseLimit("10abc", 10, 100)).toBe(10);
+    expect(parseLimit("1e9", 10, 100)).toBe(10);
   });
 });

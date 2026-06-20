@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import {
   columns, foreignKeys, indexes, objectCounts, openDb, quoteIdent,
@@ -52,6 +53,42 @@ describe("db boundary", () => {
     expect(indexes(db, "users").some((i) => i.name === "idx_users_created")).toBe(true);
     expect(foreignKeys(db, "memberships")).toContainEqual({ column: "team_id", references: "teams.id" });
     expect(objectCounts(db)).toEqual({ tables: 3, views: 1, triggers: 0 });
+    db.close();
+  });
+
+  it("resolves foreign key shorthand to the referenced primary key", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sqlite-axi-fk-"));
+    const path = join(dir, "fk.db");
+    const seed = new Database(path);
+    seed.exec(`
+      CREATE TABLE teams (id INTEGER PRIMARY KEY, label TEXT);
+      CREATE TABLE memberships (team_id INTEGER REFERENCES teams);
+    `);
+    seed.close();
+
+    const db = openDb(path);
+    expect(foreignKeys(db, "memberships")).toEqual([
+      { column: "team_id", references: "teams.id" },
+    ]);
+    db.close();
+  });
+
+  it("marks expression indexes instead of rendering blank columns", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sqlite-axi-index-"));
+    const path = join(dir, "index.db");
+    const seed = new Database(path);
+    seed.exec(`
+      CREATE TABLE users (name TEXT);
+      CREATE INDEX idx_users_lower_name ON users(lower(name));
+    `);
+    seed.close();
+
+    const db = openDb(path);
+    expect(indexes(db, "users")).toContainEqual({
+      name: "idx_users_lower_name",
+      unique: 0,
+      columns: "<expression>",
+    });
     db.close();
   });
 
