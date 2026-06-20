@@ -21,7 +21,7 @@ export function homeCommand(
   if (found.length > 1) {
     return {
       databases: found,
-      help: ["Pick one with --db, e.g. `sqlite-axi --db <path> tables`"],
+      help: ["Pick one with --db, e.g. `sqlite-axi tables --db <path>`"],
     };
   }
 

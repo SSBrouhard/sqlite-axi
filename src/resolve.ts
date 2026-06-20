@@ -36,14 +36,14 @@ export function resolveDb(
   if (found.length === 0) {
     throw new AxiError("no SQLite database found in the current directory", "NO_DATABASE", [
       "Pass a path: sqlite-axi <command> <db>",
-      "Or set it explicitly: sqlite-axi --db <path> <command>",
+      "Or set it explicitly: sqlite-axi <command> --db <path>",
     ]);
   }
   if (found.length > 1) {
     throw new AxiError(
       "multiple databases found — choose one with --db",
       "DB_AMBIGUOUS",
-      found.map((f) => `sqlite-axi --db ${f} <command>`),
+      found.map((f) => `sqlite-axi <command> --db ${f}`),
     );
   }
   return { dbPath: found[0], rest: positionals };
