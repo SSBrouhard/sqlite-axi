@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { schemaCommand } from "../src/commands/schema.js";
-import { seedDb } from "./helpers.js";
+import { expectAxiError, seedDb } from "./helpers.js";
 
 describe("schema", () => {
   it("returns columns, indexes, foreign keys, and row count", () => {
@@ -19,27 +19,14 @@ describe("schema", () => {
   });
 
   it("requires a table or view name (VALIDATION_ERROR)", () => {
-    expect(() => schemaCommand([seedDb()])).toThrowError();
-    try {
-      schemaCommand([seedDb()]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
-    }
+    expectAxiError(() => schemaCommand([seedDb()]), "VALIDATION_ERROR");
   });
 
   it("rejects extra positional arguments", () => {
-    try {
-      schemaCommand([seedDb(), "users", "extra"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
-    }
+    expectAxiError(() => schemaCommand([seedDb(), "users", "extra"]), "VALIDATION_ERROR");
   });
 
   it("errors NOT_FOUND for an unknown table", () => {
-    try {
-      schemaCommand([seedDb(), "ghost"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("NOT_FOUND");
-    }
+    expectAxiError(() => schemaCommand([seedDb(), "ghost"]), "NOT_FOUND");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sampleCommand } from "../src/commands/sample.js";
-import { seedDb, seedWeirdDb } from "./helpers.js";
+import { expectAxiError, seedDb, seedWeirdDb } from "./helpers.js";
 
 describe("sample", () => {
   it("returns capped rows with a total count", () => {
@@ -16,18 +16,10 @@ describe("sample", () => {
   });
 
   it("rejects extra positional arguments", () => {
-    try {
-      sampleCommand([seedDb(), "users", "extra"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
-    }
+    expectAxiError(() => sampleCommand([seedDb(), "users", "extra"]), "VALIDATION_ERROR");
   });
 
   it("errors NOT_FOUND for an unknown table", () => {
-    try {
-      sampleCommand([seedDb(), "ghost"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("NOT_FOUND");
-    }
+    expectAxiError(() => sampleCommand([seedDb(), "ghost"]), "NOT_FOUND");
   });
 });

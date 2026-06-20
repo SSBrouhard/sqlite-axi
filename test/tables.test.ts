@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tablesCommand } from "../src/commands/tables.js";
-import { seedDb } from "./helpers.js";
+import { expectAxiError, seedDb } from "./helpers.js";
 
 describe("tables", () => {
   it("lists tables with row and column counts", () => {
@@ -11,10 +11,6 @@ describe("tables", () => {
   });
 
   it("rejects extra positional arguments", () => {
-    try {
-      tablesCommand([seedDb(), "users"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
-    }
+    expectAxiError(() => tablesCommand([seedDb(), "users"]), "VALIDATION_ERROR");
   });
 });
