@@ -4,8 +4,8 @@
 
 ---
 
-`sqlite-axi` wraps SQLite in an agent-ergonomic CLI. It auto-discovers the database in the
-current directory and returns [TOON](https://toonformat.dev/) — compact schema snapshots and
+`sqlite-axi` wraps SQLite in an agent-ergonomic CLI. It auto-discovers a database in the
+current directory or one level down and returns [TOON](https://toonformat.dev/) — compact schema snapshots and
 capped query results instead of walls of JSON. Read-only by construction.
 
 ## Install
@@ -47,7 +47,10 @@ result[2]{id,email}:
   2,u2@example.com
 ```
 
-`tables`, `sample <table>`, and `--full`/`--limit` round out the surface.
+`tables [db]` lists base tables. `schema [db] <table-or-view>` and
+`sample [db] <table-or-view>` inspect one object. `query [db] "<sql>"` runs a single read-only
+statement. A database can also be selected with `--db <path>`. `--limit` caps rows at 1000;
+`--full` disables 200-character cell truncation for `sample` and `query`.
 
 ## Read-only guarantee
 

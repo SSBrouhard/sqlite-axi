@@ -61,7 +61,7 @@ test/*.test.ts          one per module
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@toon-format/toon": "^0.8.0",
+    "@toon-format/toon": "^2.3.0",
     "axi-sdk-js": "^0.1.7",
     "better-sqlite3": "^12.0.0"
   },
@@ -154,7 +154,7 @@ export function seedDb(): string {
   const db = new Database(path);
   db.exec(`
     CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
+      id INTEGER PRIMARY KEY NOT NULL,
       email TEXT NOT NULL,
       name TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -224,11 +224,13 @@ describe("parseFlags", () => {
 });
 
 describe("parseLimit", () => {
-  it("clamps to [1, max] and falls back on junk", () => {
+  it("clamps to [1, max] and falls back on invalid values", () => {
     expect(parseLimit("5", 10, 100)).toBe(5);
     expect(parseLimit("999", 10, 100)).toBe(100);
     expect(parseLimit(undefined, 10, 100)).toBe(10);
     expect(parseLimit("abc", 10, 100)).toBe(10);
+    expect(parseLimit("10abc", 10, 100)).toBe(10);
+    expect(parseLimit("1e9", 10, 100)).toBe(10);
   });
 });
 ```
@@ -284,6 +286,7 @@ export function parseLimit(
   max: number,
 ): number {
   if (typeof value !== "string") return fallback;
+  if (!/^\d+$/.test(value)) return fallback;
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);
@@ -452,6 +455,9 @@ describe("validateReadOnly", () => {
   it("accepts SELECT, EXPLAIN SELECT, EXPLAIN QUERY PLAN SELECT", () => {
     expect(() => validateReadOnly("select * from users")).not.toThrow();
     expect(() => validateReadOnly("  -- c\n SELECT 1")).not.toThrow();
+    expect(() => validateReadOnly("select ';' as semi")).not.toThrow();
+    expect(() => validateReadOnly("select '/* not a comment */' as body")).not.toThrow();
+    expect(() => validateReadOnly("select 1; -- trailing comment")).not.toThrow();
     expect(() => validateReadOnly("EXPLAIN SELECT 1")).not.toThrow();
     expect(() => validateReadOnly("explain query plan select 1")).not.toThrow();
   });
@@ -514,6 +520,75 @@ function stripLeadingComments(sql: string): string {
   }
 }
 
+function stripTrailingComments(sql: string): string {
+  let s = sql.trimEnd();
+  for (;;) {
+    const trimmed = s.trimEnd();
+    if (trimmed.endsWith("*/")) {
+      const start = trimmed.lastIndexOf("/*");
+      if (start === -1) return trimmed;
+      s = trimmed.slice(0, start);
+      continue;
+    }
+    const lineComment = trimmed.lastIndexOf("--");
+    if (lineComment !== -1 && trimmed.slice(lineComment).indexOf("\n") === -1) {
+      s = trimmed.slice(0, lineComment);
+      continue;
+    }
+    return trimmed;
+  }
+}
+
+function hasStackedStatement(sql: string): boolean {
+  let quote: "'" | "\"" | "`" | "[" | null = null;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (quote === "'") {
+      if (ch === "'" && next === "'") {
+        i++;
+      } else if (ch === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "\"" || quote === "`") {
+      if (ch === quote && next === quote) {
+        i++;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "[") {
+      if (ch === "]") quote = null;
+      continue;
+    }
+
+    if (ch === "-" && next === "-") {
+      const end = sql.indexOf("\n", i + 2);
+      if (end === -1) return false;
+      i = end;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      const end = sql.indexOf("*/", i + 2);
+      if (end === -1) return false;
+      i = end + 1;
+      continue;
+    }
+    if (ch === "'" || ch === "\"" || ch === "`" || ch === "[") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ";") {
+      return stripTrailingComments(sql.slice(i + 1)).trim() !== "";
+    }
+  }
+  return false;
+}
+
 /** Throw AxiError unless `sql` is a single SELECT / EXPLAIN [QUERY PLAN] SELECT statement. */
 export function validateReadOnly(sql: string): void {
   const trimmed = stripLeadingComments(sql);
@@ -523,8 +598,7 @@ export function validateReadOnly(sql: string): void {
     ]);
   }
 
-  const semi = trimmed.indexOf(";");
-  if (semi !== -1 && trimmed.slice(semi + 1).trim() !== "") {
+  if (hasStackedStatement(trimmed)) {
     throw new AxiError("only a single statement is allowed", "READ_ONLY", [READONLY_HELP]);
   }
 
@@ -744,14 +818,14 @@ export function resolveDb(
   if (found.length === 0) {
     throw new AxiError("no SQLite database found in the current directory", "NO_DATABASE", [
       "Pass a path: sqlite-axi <command> <db>",
-      "Or set it explicitly: sqlite-axi --db <path> <command>",
+      "Or set it explicitly: sqlite-axi <command> --db <path>",
     ]);
   }
   if (found.length > 1) {
     throw new AxiError(
       "multiple databases found — choose one with --db",
       "DB_AMBIGUOUS",
-      found.map((f) => `sqlite-axi --db ${f} <command>`),
+      found.map((f) => `sqlite-axi <command> --db ${f}`),
     );
   }
   return { dbPath: found[0], rest: positionals };
@@ -781,6 +855,10 @@ git commit -m "feat: add database resolution (flag/positional/discovery)"
 - [ ] **Step 1: Write the failing test**
 
 ```ts
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import {
   columns, foreignKeys, indexes, objectCounts, openDb, quoteIdent,
@@ -803,6 +881,18 @@ describe("db boundary", () => {
     }
   });
 
+  it("throws INVALID_DB for a non-SQLite file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sqlite-axi-bad-"));
+    const path = join(dir, "bad.db");
+    writeFileSync(path, "this is not a sqlite database");
+    try {
+      openDb(path);
+      throw new Error("expected openDb to throw");
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe("INVALID_DB");
+    }
+  });
+
   it("lists base tables and reports existence", () => {
     const db = openDb(seedDb());
     expect(tableNames(db)).toEqual(["memberships", "teams", "users"]);
@@ -820,6 +910,42 @@ describe("db boundary", () => {
     expect(indexes(db, "users").some((i) => i.name === "idx_users_created")).toBe(true);
     expect(foreignKeys(db, "memberships")).toContainEqual({ column: "team_id", references: "teams.id" });
     expect(objectCounts(db)).toEqual({ tables: 3, views: 1, triggers: 0 });
+    db.close();
+  });
+
+  it("resolves foreign key shorthand to the referenced primary key", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sqlite-axi-fk-"));
+    const path = join(dir, "fk.db");
+    const seed = new Database(path);
+    seed.exec(`
+      CREATE TABLE teams (id INTEGER PRIMARY KEY, label TEXT);
+      CREATE TABLE memberships (team_id INTEGER REFERENCES teams);
+    `);
+    seed.close();
+
+    const db = openDb(path);
+    expect(foreignKeys(db, "memberships")).toEqual([
+      { column: "team_id", references: "teams.id" },
+    ]);
+    db.close();
+  });
+
+  it("marks expression indexes instead of rendering blank columns", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sqlite-axi-index-"));
+    const path = join(dir, "index.db");
+    const seed = new Database(path);
+    seed.exec(`
+      CREATE TABLE users (name TEXT);
+      CREATE INDEX idx_users_lower_name ON users(lower(name));
+    `);
+    seed.close();
+
+    const db = openDb(path);
+    expect(indexes(db, "users")).toContainEqual({
+      name: "idx_users_lower_name",
+      unique: 0,
+      columns: "<expression>",
+    });
     db.close();
   });
 
@@ -867,13 +993,18 @@ export function openDb(path: string): DB {
       "Run `sqlite-axi` with no arguments to auto-discover a database",
     ]);
   }
+  let db: Database.Database | undefined;
   try {
-    return new Database(path, { readonly: true });
+    db = new Database(path, { readonly: true });
+    // better-sqlite3 opens lazily; force a header read so a non-SQLite file fails here.
+    db.prepare("SELECT name FROM sqlite_master LIMIT 1").get();
   } catch {
+    try { db?.close(); } catch { /* ignore close error */ }
     throw new AxiError(`not a valid SQLite database: ${path}`, "INVALID_DB", [
       "Confirm the file is a SQLite database",
     ]);
   }
+  return db;
 }
 
 export function quoteIdent(name: string): string {
@@ -911,19 +1042,19 @@ export interface ColumnInfo {
 
 export function columns(db: DB, name: string): ColumnInfo[] {
   const rows = db
-    .prepare('SELECT name, type, pk, "notnull" AS notnull, dflt_value FROM pragma_table_info(?)')
+    .prepare('SELECT name, type, pk, "notnull" AS nn, dflt_value FROM pragma_table_info(?)')
     .all(name) as Array<{
     name: string;
     type: string;
     pk: number;
-    notnull: number;
+    nn: number;
     dflt_value: string | null;
   }>;
   return rows.map((r) => ({
     name: r.name,
     type: r.type,
     pk: r.pk,
-    notnull: r.notnull,
+    notnull: r.nn,
     default: r.dflt_value ?? "",
   }));
 }
@@ -941,12 +1072,21 @@ export function indexes(db: DB, name: string): IndexInfo[] {
   return list.map((idx) => ({
     name: idx.name,
     unique: idx.uniq,
-    columns: db
-      .prepare("SELECT name FROM pragma_index_info(?)")
-      .all(idx.name)
-      .map((c) => (c as { name: string }).name)
-      .join(" "),
+    columns: indexColumns(db, idx.name),
   }));
+}
+
+function indexColumns(db: DB, name: string): string {
+  const rows = db
+    .prepare("SELECT name, cid, key FROM pragma_index_xinfo(?) WHERE key = 1 ORDER BY seqno")
+    .all(name) as Array<{ name: string | null; cid: number; key: number }>;
+  return rows
+    .map((row) => {
+      if (row.name) return row.name;
+      if (row.cid === -2) return "<expression>";
+      return "<unknown>";
+    })
+    .join(" ");
 }
 
 export interface ForeignKey {
@@ -957,8 +1097,19 @@ export interface ForeignKey {
 export function foreignKeys(db: DB, name: string): ForeignKey[] {
   const rows = db
     .prepare('SELECT "table" AS tbl, "from" AS col, "to" AS ref FROM pragma_foreign_key_list(?)')
-    .all(name) as Array<{ tbl: string; col: string; ref: string }>;
-  return rows.map((r) => ({ column: r.col, references: `${r.tbl}.${r.ref}` }));
+    .all(name) as Array<{ tbl: string; col: string; ref: string | null }>;
+  return rows.map((r) => ({
+    column: r.col,
+    references: `${r.tbl}.${r.ref ?? primaryKeyColumn(db, r.tbl) ?? "<primary key>"}`,
+  }));
+}
+
+function primaryKeyColumn(db: DB, table: string): string | null {
+  const rows = db
+    .prepare("SELECT name, pk FROM pragma_table_info(?) WHERE pk > 0 ORDER BY pk")
+    .all(table) as Array<{ name: string; pk: number }>;
+  if (rows.length === 1) return rows[0].name;
+  return null;
 }
 
 export interface ObjectCounts {
@@ -1058,6 +1209,14 @@ describe("tables", () => {
     expect(out.tables).toContainEqual({ table: "users", rows: 5, columns: 4 });
     expect(out.help).toEqual(["Run `sqlite-axi schema <table>` for details"]);
   });
+
+  it("rejects extra positional arguments", () => {
+    try {
+      tablesCommand([seedDb(), "users"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
+    }
+  });
 });
 ```
 
@@ -1070,12 +1229,19 @@ Expected: FAIL — cannot find module.
 
 ```ts
 import { parseFlags } from "../args.js";
+import { AxiError } from "axi-sdk-js";
 import { columns, openDb, rowCount, tableNames } from "../db.js";
 import { resolveDb } from "../resolve.js";
 
 export function tablesCommand(args: string[]): Record<string, unknown> {
   const { positionals, flags } = parseFlags(args);
-  const { dbPath } = resolveDb(positionals, flags);
+  const { dbPath, rest } = resolveDb(positionals, flags);
+  if (rest.length > 0) {
+    throw new AxiError("tables does not accept table arguments", "VALIDATION_ERROR", [
+      "Run `sqlite-axi tables [db]`",
+      "Run `sqlite-axi schema <table>` for one table",
+    ]);
+  }
   const db = openDb(dbPath);
   try {
     const names = tableNames(db);
@@ -1158,6 +1324,14 @@ describe("schema", () => {
       expect((e as { code: string }).code).toBe("NOT_FOUND");
     }
   });
+
+  it("rejects extra positional arguments", () => {
+    try {
+      schemaCommand([seedDb(), "users", "extra"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
+    }
+  });
 });
 ```
 
@@ -1181,6 +1355,11 @@ export function schemaCommand(args: string[]): Record<string, unknown> {
   if (!table) {
     throw new AxiError("a table name is required", "VALIDATION_ERROR", [
       "Run `sqlite-axi tables` to list tables, then `sqlite-axi schema <table>`",
+    ]);
+  }
+  if (rest.length > 1) {
+    throw new AxiError("schema accepts exactly one table name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi schema [db] <table>`",
     ]);
   }
   const db = openDb(dbPath);
@@ -1253,6 +1432,14 @@ describe("sample", () => {
       expect((e as { code: string }).code).toBe("NOT_FOUND");
     }
   });
+
+  it("rejects extra positional arguments", () => {
+    try {
+      sampleCommand([seedDb(), "users", "extra"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
+    }
+  });
 });
 ```
 
@@ -1280,6 +1467,11 @@ export function sampleCommand(args: string[]): Record<string, unknown> {
   if (!table) {
     throw new AxiError("a table name is required", "VALIDATION_ERROR", [
       "sqlite-axi sample <table> [--limit 10]",
+    ]);
+  }
+  if (rest.length > 1) {
+    throw new AxiError("sample accepts exactly one table name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi sample [db] <table> [--limit 10]`",
     ]);
   }
   const limit = parseLimit(flags.limit, DEFAULT_LIMIT, MAX_LIMIT);
@@ -1461,6 +1653,7 @@ Expected: FAIL — cannot find module.
 - [ ] **Step 3: Write `src/home.ts`**
 
 ```ts
+import { isAbsolute, join } from "node:path";
 import { discoverDatabases } from "./discover.js";
 import { objectCounts, openDb, rowCount, tableNames } from "./db.js";
 
@@ -1483,12 +1676,13 @@ export function homeCommand(
   if (found.length > 1) {
     return {
       databases: found,
-      help: ["Pick one with --db, e.g. `sqlite-axi --db <path> tables`"],
+      help: ["Pick one with --db, e.g. `sqlite-axi tables --db <path>`"],
     };
   }
 
   const dbPath = found[0];
-  const db = openDb(dbPath);
+  const absPath = isAbsolute(dbPath) ? dbPath : join(cwd, dbPath);
+  const db = openDb(absPath);
   try {
     const names = tableNames(db);
     const counts = names.map((name) => ({ table: name, rows: rowCount(db, name) }));
@@ -1669,14 +1863,15 @@ await runAxiCli({
 Run:
 ```bash
 npm run build && chmod +x dist/bin/sqlite-axi.js
-node -e "const D=require('better-sqlite3'); const db=new D('/tmp/smoke.db'); db.exec('create table t(a,b); insert into t values (1,2),(3,4)'); db.close()"
-cd /tmp && node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js          # home snapshot of smoke.db
-node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js tables
-node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js schema t
-node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js sample t
-node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js query "select a from t"
-node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js query "delete from t"; echo "exit=$?"   # expect READ_ONLY, exit 2
-node /Users/vesta/Desktop/sqlite-axi/dist/bin/sqlite-axi.js schema; echo "exit=$?"                   # expect VALIDATION_ERROR, exit 2
+SMOKE_DIR="$(mktemp -d)"
+node -e "const D=require('better-sqlite3'); const db=new D(process.argv[1]); db.exec('create table t(a,b); insert into t values (1,2),(3,4)'); db.close()" "$SMOKE_DIR/smoke.db"
+cd "$SMOKE_DIR" && node "$OLDPWD/dist/bin/sqlite-axi.js"          # home snapshot of smoke.db
+node "$OLDPWD/dist/bin/sqlite-axi.js" tables
+node "$OLDPWD/dist/bin/sqlite-axi.js" schema t
+node "$OLDPWD/dist/bin/sqlite-axi.js" sample t
+node "$OLDPWD/dist/bin/sqlite-axi.js" query "select a from t"
+node "$OLDPWD/dist/bin/sqlite-axi.js" query "delete from t"; echo "exit=$?"   # expect READ_ONLY, exit 2
+node "$OLDPWD/dist/bin/sqlite-axi.js" schema; echo "exit=$?"                   # expect VALIDATION_ERROR, exit 2
 ```
 Expected: TOON snapshots for the read commands; the write query prints a `READ_ONLY` error and `exit=2`; bare `schema` prints `VALIDATION_ERROR` and `exit=2`.
 
@@ -1706,7 +1901,7 @@ git commit -m "feat: wire CLI entry point, help, and setup hooks"
 name: sqlite-axi
 description: >
   Use when you need to inspect or query a local SQLite database — list tables,
-  see a table's columns/keys/indexes, preview rows, or run a read-only SELECT.
+  see a table/view's columns/keys/indexes, preview rows, or run a read-only SELECT.
   Token-efficient TOON output. Read-only; no writes are possible.
 ---
 
@@ -1714,7 +1909,7 @@ description: >
 
 `sqlite-axi` is an [AXI](https://github.com/kunchenguid/axi) for SQLite. It opens databases
 **read-only** and returns token-efficient TOON. The database is auto-discovered in the current
-directory, or passed as a file path / `--db`.
+directory or one level down, or passed as a file path / `--db`.
 
 Run without a global install:
 
@@ -1724,10 +1919,10 @@ npx -y sqlite-axi <command>
 
 ## Commands
 
-- `sqlite-axi tables` — tables with row and column counts.
-- `sqlite-axi schema <table>` — columns (type, pk, notnull, default), indexes, foreign keys.
-- `sqlite-axi sample <table> [--limit 10] [--full]` — preview rows; cells truncate unless `--full`.
-- `sqlite-axi query "<sql>" [--limit 50] [--full]` — a single read-only query
+- `sqlite-axi tables [db]` — base tables with row and column counts.
+- `sqlite-axi schema [db] <table-or-view>` — columns (type, pk, notnull, default), indexes, foreign keys.
+- `sqlite-axi sample [db] <table-or-view> [--limit 10] [--full]` — preview rows; cells truncate unless `--full`.
+- `sqlite-axi query [db] "<sql>" [--limit 50] [--full]` — a single read-only query
   (`SELECT` / `EXPLAIN SELECT` / `EXPLAIN QUERY PLAN SELECT` only).
 
 ## Notes
@@ -1736,7 +1931,7 @@ npx -y sqlite-axi <command>
   validator rejects anything but the allowed read statements.
 - Errors are structured TOON on stdout with a `help` line. Exit codes: `0` ok, `1` error,
   `2` usage/read-only violation.
-- Unknown table → `NOT_FOUND` suggesting `sqlite-axi tables`.
+- Unknown table/view → `NOT_FOUND` suggesting `sqlite-axi tables`.
 ```
 
 - [ ] **Step 2: Write `README.md`**
@@ -1748,8 +1943,8 @@ npx -y sqlite-axi <command>
 
 ---
 
-`sqlite-axi` wraps SQLite in an agent-ergonomic CLI. It auto-discovers the database in the
-current directory and returns [TOON](https://toonformat.dev/) — compact schema snapshots and
+`sqlite-axi` wraps SQLite in an agent-ergonomic CLI. It auto-discovers a database in the
+current directory or one level down and returns [TOON](https://toonformat.dev/) — compact schema snapshots and
 capped query results instead of walls of JSON. Read-only by construction.
 
 ## Install
@@ -1791,7 +1986,10 @@ result[2]{id,email}:
   2,u2@example.com
 ```
 
-`tables`, `sample <table>`, and `--full`/`--limit` round out the surface.
+`tables [db]` lists base tables. `schema [db] <table-or-view>` and
+`sample [db] <table-or-view>` inspect one object. `query [db] "<sql>"` runs a single read-only
+statement. A database can also be selected with `--db <path>`. `--limit` caps rows at 1000;
+`--full` disables 200-character cell truncation for `sample` and `query`.
 
 ## Read-only guarantee
 
