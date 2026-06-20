@@ -12,6 +12,11 @@ export function schemaCommand(args: string[]): Record<string, unknown> {
       "Run `sqlite-axi tables` to list tables, then `sqlite-axi schema <table>`",
     ]);
   }
+  if (rest.length > 1) {
+    throw new AxiError("schema accepts exactly one table name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi schema [db] <table>`",
+    ]);
+  }
   const db = openDb(dbPath);
   try {
     if (!tableExists(db, table)) {

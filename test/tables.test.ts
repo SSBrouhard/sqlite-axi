@@ -9,4 +9,12 @@ describe("tables", () => {
     expect(out.tables).toContainEqual({ table: "users", rows: 5, columns: 4 });
     expect(out.help).toEqual(["Run `sqlite-axi schema <table>` for details"]);
   });
+
+  it("rejects extra positional arguments", () => {
+    try {
+      tablesCommand([seedDb(), "users"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
+    }
+  });
 });

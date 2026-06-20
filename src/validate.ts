@@ -21,6 +21,75 @@ function stripLeadingComments(sql: string): string {
   }
 }
 
+function stripTrailingComments(sql: string): string {
+  let s = sql.trimEnd();
+  for (;;) {
+    const trimmed = s.trimEnd();
+    if (trimmed.endsWith("*/")) {
+      const start = trimmed.lastIndexOf("/*");
+      if (start === -1) return trimmed;
+      s = trimmed.slice(0, start);
+      continue;
+    }
+    const lineComment = trimmed.lastIndexOf("--");
+    if (lineComment !== -1 && trimmed.slice(lineComment).indexOf("\n") === -1) {
+      s = trimmed.slice(0, lineComment);
+      continue;
+    }
+    return trimmed;
+  }
+}
+
+function hasStackedStatement(sql: string): boolean {
+  let quote: "'" | "\"" | "`" | "[" | null = null;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (quote === "'") {
+      if (ch === "'" && next === "'") {
+        i++;
+      } else if (ch === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "\"" || quote === "`") {
+      if (ch === quote && next === quote) {
+        i++;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (quote === "[") {
+      if (ch === "]") quote = null;
+      continue;
+    }
+
+    if (ch === "-" && next === "-") {
+      const end = sql.indexOf("\n", i + 2);
+      if (end === -1) return false;
+      i = end;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      const end = sql.indexOf("*/", i + 2);
+      if (end === -1) return false;
+      i = end + 1;
+      continue;
+    }
+    if (ch === "'" || ch === "\"" || ch === "`" || ch === "[") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ";") {
+      return stripTrailingComments(sql.slice(i + 1)).trim() !== "";
+    }
+  }
+  return false;
+}
+
 /** Throw AxiError unless `sql` is a single SELECT / EXPLAIN [QUERY PLAN] SELECT statement. */
 export function validateReadOnly(sql: string): void {
   const trimmed = stripLeadingComments(sql);
@@ -30,8 +99,7 @@ export function validateReadOnly(sql: string): void {
     ]);
   }
 
-  const semi = trimmed.indexOf(";");
-  if (semi !== -1 && trimmed.slice(semi + 1).trim() !== "") {
+  if (hasStackedStatement(trimmed)) {
     throw new AxiError("only a single statement is allowed", "READ_ONLY", [READONLY_HELP]);
   }
 

@@ -15,6 +15,14 @@ describe("sample", () => {
     expect(out.rows).toEqual([{ c0: "hello", c1: 1 }]);
   });
 
+  it("rejects extra positional arguments", () => {
+    try {
+      sampleCommand([seedDb(), "users", "extra"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
+    }
+  });
+
   it("errors NOT_FOUND for an unknown table", () => {
     try {
       sampleCommand([seedDb(), "ghost"]);

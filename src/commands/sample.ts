@@ -16,6 +16,11 @@ export function sampleCommand(args: string[]): Record<string, unknown> {
       "sqlite-axi sample <table> [--limit 10]",
     ]);
   }
+  if (rest.length > 1) {
+    throw new AxiError("sample accepts exactly one table name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi sample [db] <table> [--limit 10]`",
+    ]);
+  }
   const limit = parseLimit(flags.limit, DEFAULT_LIMIT, MAX_LIMIT);
   const full = flags.full === true;
   const db = openDb(dbPath);

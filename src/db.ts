@@ -91,12 +91,21 @@ export function indexes(db: DB, name: string): IndexInfo[] {
   return list.map((idx) => ({
     name: idx.name,
     unique: idx.uniq,
-    columns: db
-      .prepare("SELECT name FROM pragma_index_info(?)")
-      .all(idx.name)
-      .map((c) => (c as { name: string }).name)
-      .join(" "),
+    columns: indexColumns(db, idx.name),
   }));
+}
+
+function indexColumns(db: DB, name: string): string {
+  const rows = db
+    .prepare("SELECT name, cid, key FROM pragma_index_xinfo(?) WHERE key = 1 ORDER BY seqno")
+    .all(name) as Array<{ name: string | null; cid: number; key: number }>;
+  return rows
+    .map((row) => {
+      if (row.name) return row.name;
+      if (row.cid === -2) return "<expression>";
+      return "<unknown>";
+    })
+    .join(" ");
 }
 
 export interface ForeignKey {
@@ -107,8 +116,19 @@ export interface ForeignKey {
 export function foreignKeys(db: DB, name: string): ForeignKey[] {
   const rows = db
     .prepare('SELECT "table" AS tbl, "from" AS col, "to" AS ref FROM pragma_foreign_key_list(?)')
-    .all(name) as Array<{ tbl: string; col: string; ref: string }>;
-  return rows.map((r) => ({ column: r.col, references: `${r.tbl}.${r.ref}` }));
+    .all(name) as Array<{ tbl: string; col: string; ref: string | null }>;
+  return rows.map((r) => ({
+    column: r.col,
+    references: `${r.tbl}.${r.ref ?? primaryKeyColumn(db, r.tbl) ?? "<primary key>"}`,
+  }));
+}
+
+function primaryKeyColumn(db: DB, table: string): string | null {
+  const rows = db
+    .prepare("SELECT name, pk FROM pragma_table_info(?) WHERE pk > 0 ORDER BY pk")
+    .all(table) as Array<{ name: string; pk: number }>;
+  if (rows.length === 1) return rows[0].name;
+  return null;
 }
 
 export interface ObjectCounts {

@@ -27,6 +27,14 @@ describe("schema", () => {
     }
   });
 
+  it("rejects extra positional arguments", () => {
+    try {
+      schemaCommand([seedDb(), "users", "extra"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("VALIDATION_ERROR");
+    }
+  });
+
   it("errors NOT_FOUND for an unknown table", () => {
     try {
       schemaCommand([seedDb(), "ghost"]);

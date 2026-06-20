@@ -41,6 +41,7 @@ export function parseLimit(
   max: number,
 ): number {
   if (typeof value !== "string") return fallback;
+  if (!/^\d+$/.test(value)) return fallback;
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
   return Math.min(parsed, max);
