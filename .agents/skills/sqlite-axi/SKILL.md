@@ -30,6 +30,7 @@ npx -y sqlite-axi <command>
 
 - Read-only is enforced two ways: the file is opened with SQLite's read-only flag, and a
   validator rejects anything but the allowed read statements.
+- `--limit` flags accept decimal integers and cap at 1000 rows.
 - Errors are structured TOON on stdout with a `help` line. Exit codes: `0` ok, `1` error,
   `2` usage/read-only violation.
 - Unknown table/view → `NOT_FOUND` suggesting `sqlite-axi tables`.

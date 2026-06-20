@@ -279,7 +279,7 @@ export function parseFlags(args: string[], booleans: string[] = []): ParsedArgs 
   return { positionals, flags };
 }
 
-/** Parse a `--limit` flag into a clamped positive integer. */
+/** Parse a decimal `--limit` flag into a clamped positive integer. */
 export function parseLimit(
   value: string | boolean | undefined,
   fallback: number,
@@ -1762,7 +1762,7 @@ Examples:
 Preview rows from a table or view. Cells over 200 chars truncate unless --full is given.
 
 Flags:
-  --limit <n>   Rows to show (default 10, max 1000)
+  --limit <n>   Decimal rows to show (default 10, max 1000)
   --full        Do not truncate cell values
 
 Examples:
@@ -1775,7 +1775,7 @@ Run a single read-only query: SELECT, EXPLAIN SELECT, or EXPLAIN QUERY PLAN SELE
 Writes, PRAGMA, WITH, and stacked statements are rejected.
 
 Flags:
-  --limit <n>   Max rows returned (default 50, max 1000)
+  --limit <n>   Decimal max rows returned (default 50, max 1000)
   --full        Do not truncate cell values
 
 Examples:
@@ -1929,6 +1929,7 @@ npx -y sqlite-axi <command>
 
 - Read-only is enforced two ways: the file is opened with SQLite's read-only flag, and a
   validator rejects anything but the allowed read statements.
+- `--limit` flags accept decimal integers and cap at 1000 rows.
 - Errors are structured TOON on stdout with a `help` line. Exit codes: `0` ok, `1` error,
   `2` usage/read-only violation.
 - Unknown table/view → `NOT_FOUND` suggesting `sqlite-axi tables`.
@@ -1988,7 +1989,8 @@ result[2]{id,email}:
 
 `tables [db]` lists base tables. `schema [db] <table-or-view>` and
 `sample [db] <table-or-view>` inspect one object. `query [db] "<sql>"` runs a single read-only
-statement. A database can also be selected with `--db <path>`. `--limit` caps rows at 1000;
+statement. A database can also be selected with `--db <path>`. `--limit` accepts decimal integers
+and caps rows at 1000;
 `--full` disables 200-character cell truncation for `sample` and `query`.
 
 ## Read-only guarantee

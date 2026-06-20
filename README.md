@@ -49,7 +49,8 @@ result[2]{id,email}:
 
 `tables [db]` lists base tables. `schema [db] <table-or-view>` and
 `sample [db] <table-or-view>` inspect one object. `query [db] "<sql>"` runs a single read-only
-statement. A database can also be selected with `--db <path>`. `--limit` caps rows at 1000;
+statement. A database can also be selected with `--db <path>`. `--limit` accepts decimal integers
+and caps rows at 1000;
 `--full` disables 200-character cell truncation for `sample` and `query`.
 
 ## Read-only guarantee

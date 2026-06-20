@@ -109,8 +109,11 @@ help[1]: Run `sqlite-axi schema <table-or-view>` for details
 
 ### `schema [db] <table-or-view>`
 
-Detail view via `PRAGMA table_info` / `index_list` / `foreign_key_list`. The object name is required;
-omitting it → `VALIDATION_ERROR` (exit 2) suggesting `sqlite-axi tables` to list tables first.
+Detail view via `PRAGMA table_info` / `index_list` / `index_xinfo` / `foreign_key_list`. The
+object name is required; omitting it → `VALIDATION_ERROR` (exit 2) suggesting `sqlite-axi tables`
+to list tables first. Expression indexes render their indexed expression slots as `<expression>`.
+Foreign keys that omit a target column resolve to the referenced table's single primary-key column,
+falling back to `<primary key>` only when no single column can be named.
 
 ```
 table: users
@@ -154,8 +157,8 @@ result[12]{id,email}:
 
 1. **Hard layer:** `new Database(path, { readonly: true })` — the engine rejects every write.
 2. **Allowlist (`src/validate.ts`):** after stripping leading comments and confirming a **single**
-   statement (a `;` followed by more content is rejected), the SQL must match exactly one of three
-   shapes (case-insensitive):
+   statement (quote/comment-aware semicolon scanning; trailing comments after a final semicolon are
+   fine), the SQL must match exactly one of three shapes (case-insensitive):
    - `SELECT ...`
    - `EXPLAIN SELECT ...`
    - `EXPLAIN QUERY PLAN SELECT ...`
@@ -223,8 +226,9 @@ TDD with vitest against **real temporary SQLite files** seeded per test (better-
 them in a writable temp dir; the tool still opens targets read-only). Cover:
 
 - Discovery: single / none / multiple, junk-dir skipping; `[db]` vs table resolution.
-- Read-only validator: accept `SELECT`, `EXPLAIN SELECT`, `EXPLAIN QUERY PLAN SELECT`; reject
-  `EXPLAIN UPDATE`, DML/DDL, `PRAGMA`, `WITH`, stacked statements, `ATTACH`.
+- Read-only validator: accept `SELECT`, `EXPLAIN SELECT`, `EXPLAIN QUERY PLAN SELECT`, semicolons
+  inside strings, and trailing comments after a final semicolon; reject `EXPLAIN UPDATE`, DML/DDL,
+  `PRAGMA`, `WITH`, stacked statements, `ATTACH`.
 - Identifier safety: unknown table/view → `NOT_FOUND`; a table named with quotes/spaces is sampled
   correctly via the quoted identifier; schema introspection binds the name as a parameter.
 - Column-name handling: `select 1 as "a,b"` and names with spaces/quotes fall back to row-object

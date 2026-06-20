@@ -36,7 +36,7 @@ Examples:
 Preview rows from a table or view. Cells over 200 chars truncate unless --full is given.
 
 Flags:
-  --limit <n>   Rows to show (default 10, max 1000)
+  --limit <n>   Decimal rows to show (default 10, max 1000)
   --full        Do not truncate cell values
 
 Examples:
@@ -49,7 +49,7 @@ Run a single read-only query: SELECT, EXPLAIN SELECT, or EXPLAIN QUERY PLAN SELE
 Writes, PRAGMA, WITH, and stacked statements are rejected.
 
 Flags:
-  --limit <n>   Max rows returned (default 50, max 1000)
+  --limit <n>   Decimal max rows returned (default 50, max 1000)
   --full        Do not truncate cell values
 
 Examples:

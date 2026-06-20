@@ -90,7 +90,7 @@ function hasStackedStatement(sql: string): boolean {
   return false;
 }
 
-/** Throw AxiError unless `sql` is a single SELECT / EXPLAIN [QUERY PLAN] SELECT statement. */
+/** Throw AxiError unless `sql` is one SELECT / EXPLAIN [QUERY PLAN] SELECT statement. */
 export function validateReadOnly(sql: string): void {
   const trimmed = stripLeadingComments(sql);
   if (!trimmed) {

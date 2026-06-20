@@ -34,7 +34,7 @@ export function parseFlags(args: string[], booleans: string[] = []): ParsedArgs 
   return { positionals, flags };
 }
 
-/** Parse a `--limit` flag into a clamped positive integer. */
+/** Parse a decimal `--limit` flag into a clamped positive integer. */
 export function parseLimit(
   value: string | boolean | undefined,
   fallback: number,
