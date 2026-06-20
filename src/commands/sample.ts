@@ -12,13 +12,13 @@ export function sampleCommand(args: string[]): Record<string, unknown> {
   const { dbPath, rest } = resolveDb(positionals, flags);
   const table = rest[0];
   if (!table) {
-    throw new AxiError("a table name is required", "VALIDATION_ERROR", [
-      "sqlite-axi sample <table> [--limit 10]",
+    throw new AxiError("a table or view name is required", "VALIDATION_ERROR", [
+      "sqlite-axi sample <table-or-view> [--limit 10]",
     ]);
   }
   if (rest.length > 1) {
-    throw new AxiError("sample accepts exactly one table name", "VALIDATION_ERROR", [
-      "Run `sqlite-axi sample [db] <table> [--limit 10]`",
+    throw new AxiError("sample accepts exactly one table or view name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi sample [db] <table-or-view> [--limit 10]`",
     ]);
   }
   const limit = parseLimit(flags.limit, DEFAULT_LIMIT, MAX_LIMIT);
@@ -26,7 +26,7 @@ export function sampleCommand(args: string[]): Record<string, unknown> {
   const db = openDb(dbPath);
   try {
     if (!tableExists(db, table)) {
-      throw new AxiError(`table "${table}" not found`, "NOT_FOUND", [
+      throw new AxiError(`table or view "${table}" not found`, "NOT_FOUND", [
         "Run `sqlite-axi tables` to list available tables",
       ]);
     }

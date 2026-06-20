@@ -1207,7 +1207,7 @@ describe("tables", () => {
     const out = tablesCommand([seedDb()]);
     expect(out.count).toBe("3 tables");
     expect(out.tables).toContainEqual({ table: "users", rows: 5, columns: 4 });
-    expect(out.help).toEqual(["Run `sqlite-axi schema <table>` for details"]);
+    expect(out.help).toEqual(["Run `sqlite-axi schema <table-or-view>` for details"]);
   });
 
   it("rejects extra positional arguments", () => {
@@ -1239,7 +1239,7 @@ export function tablesCommand(args: string[]): Record<string, unknown> {
   if (rest.length > 0) {
     throw new AxiError("tables does not accept table arguments", "VALIDATION_ERROR", [
       "Run `sqlite-axi tables [db]`",
-      "Run `sqlite-axi schema <table>` for one table",
+      "Run `sqlite-axi schema <table-or-view>` for one table or view",
     ]);
   }
   const db = openDb(dbPath);
@@ -1257,7 +1257,7 @@ export function tablesCommand(args: string[]): Record<string, unknown> {
       database: dbPath,
       count: `${tables.length} tables`,
       tables,
-      help: ["Run `sqlite-axi schema <table>` for details"],
+      help: ["Run `sqlite-axi schema <table-or-view>` for details"],
     };
   } finally {
     db.close();
@@ -1308,7 +1308,7 @@ describe("schema", () => {
     expect(out.foreignKeys).toBeUndefined();
   });
 
-  it("requires a table name (VALIDATION_ERROR)", () => {
+  it("requires a table or view name (VALIDATION_ERROR)", () => {
     expect(() => schemaCommand([seedDb()])).toThrowError();
     try {
       schemaCommand([seedDb()]);
@@ -1353,19 +1353,19 @@ export function schemaCommand(args: string[]): Record<string, unknown> {
   const { dbPath, rest } = resolveDb(positionals, flags);
   const table = rest[0];
   if (!table) {
-    throw new AxiError("a table name is required", "VALIDATION_ERROR", [
-      "Run `sqlite-axi tables` to list tables, then `sqlite-axi schema <table>`",
+    throw new AxiError("a table or view name is required", "VALIDATION_ERROR", [
+      "Run `sqlite-axi tables` to list tables, then `sqlite-axi schema <table-or-view>`",
     ]);
   }
   if (rest.length > 1) {
-    throw new AxiError("schema accepts exactly one table name", "VALIDATION_ERROR", [
-      "Run `sqlite-axi schema [db] <table>`",
+    throw new AxiError("schema accepts exactly one table or view name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi schema [db] <table-or-view>`",
     ]);
   }
   const db = openDb(dbPath);
   try {
     if (!tableExists(db, table)) {
-      throw new AxiError(`table "${table}" not found`, "NOT_FOUND", [
+      throw new AxiError(`table or view "${table}" not found`, "NOT_FOUND", [
         "Run `sqlite-axi tables` to list available tables",
       ]);
     }
@@ -1465,13 +1465,13 @@ export function sampleCommand(args: string[]): Record<string, unknown> {
   const { dbPath, rest } = resolveDb(positionals, flags);
   const table = rest[0];
   if (!table) {
-    throw new AxiError("a table name is required", "VALIDATION_ERROR", [
-      "sqlite-axi sample <table> [--limit 10]",
+    throw new AxiError("a table or view name is required", "VALIDATION_ERROR", [
+      "sqlite-axi sample <table-or-view> [--limit 10]",
     ]);
   }
   if (rest.length > 1) {
-    throw new AxiError("sample accepts exactly one table name", "VALIDATION_ERROR", [
-      "Run `sqlite-axi sample [db] <table> [--limit 10]`",
+    throw new AxiError("sample accepts exactly one table or view name", "VALIDATION_ERROR", [
+      "Run `sqlite-axi sample [db] <table-or-view> [--limit 10]`",
     ]);
   }
   const limit = parseLimit(flags.limit, DEFAULT_LIMIT, MAX_LIMIT);
@@ -1479,7 +1479,7 @@ export function sampleCommand(args: string[]): Record<string, unknown> {
   const db = openDb(dbPath);
   try {
     if (!tableExists(db, table)) {
-      throw new AxiError(`table "${table}" not found`, "NOT_FOUND", [
+      throw new AxiError(`table or view "${table}" not found`, "NOT_FOUND", [
         "Run `sqlite-axi tables` to list available tables",
       ]);
     }
@@ -1659,8 +1659,8 @@ import { objectCounts, openDb, rowCount, tableNames } from "./db.js";
 
 const HELP = [
   "Run `sqlite-axi tables` to list tables with row counts",
-  "Run `sqlite-axi schema <table>` for columns, keys, and indexes",
-  "Run `sqlite-axi sample <table>` to preview rows",
+  "Run `sqlite-axi schema <table-or-view>` for columns, keys, and indexes",
+  "Run `sqlite-axi sample <table-or-view>` to preview rows",
   'Run `sqlite-axi query "select ..."` to run a read-only query',
 ];
 
@@ -1730,8 +1730,8 @@ Usage: sqlite-axi <command> [db] [args] [flags]
 
 Commands:
   tables [db]                    List tables with row and column counts
-  schema [db] <table>            Columns, indexes, foreign keys, row count
-  sample [db] <table> [--limit]  Preview rows (default 10)
+  schema [db] <table-or-view>    Columns, indexes, foreign keys, row count
+  sample [db] <table-or-view> [--limit]  Preview rows (default 10)
   query  [db] "<sql>" [--limit]  Run a read-only SELECT (default 50 rows)
   setup hooks                    Install agent session-start hooks
 
@@ -1749,17 +1749,17 @@ Examples:
   sqlite-axi tables
   sqlite-axi tables app.db
 `,
-  schema: `sqlite-axi schema [db] <table>
+  schema: `sqlite-axi schema [db] <table-or-view>
 
-Show a table's columns (type, pk, notnull, default), indexes, and foreign keys.
+Show a table or view's columns (type, pk, notnull, default), indexes, and foreign keys.
 
 Examples:
   sqlite-axi schema users
   sqlite-axi schema app.db users
 `,
-  sample: `sqlite-axi sample [db] <table> [--limit 10] [--full]
+  sample: `sqlite-axi sample [db] <table-or-view> [--limit 10] [--full]
 
-Preview rows from a table. Cells over 200 chars truncate unless --full is given.
+Preview rows from a table or view. Cells over 200 chars truncate unless --full is given.
 
 Flags:
   --limit <n>   Rows to show (default 10, max 1000)

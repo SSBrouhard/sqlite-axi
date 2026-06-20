@@ -90,7 +90,7 @@ largest[5]{table,rows}:
   users,210
 objects: 2 views, 1 triggers
 help[2]:
-  Run `sqlite-axi schema <table>` for columns, keys, and indexes
+  Run `sqlite-axi schema <table-or-view>` for columns, keys, and indexes
   Run `sqlite-axi query "select ..."` to run a read-only query
 ```
 
@@ -104,7 +104,7 @@ count: 7 tables
 tables[7]{table,rows,columns}:
   users,210,6
   events,3800,5
-help[1]: Run `sqlite-axi schema <table>` for details
+help[1]: Run `sqlite-axi schema <table-or-view>` for details
 ```
 
 ### `schema [db] <table-or-view>`

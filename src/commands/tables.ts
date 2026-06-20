@@ -9,7 +9,7 @@ export function tablesCommand(args: string[]): Record<string, unknown> {
   if (rest.length > 0) {
     throw new AxiError("tables does not accept table arguments", "VALIDATION_ERROR", [
       "Run `sqlite-axi tables [db]`",
-      "Run `sqlite-axi schema <table>` for one table",
+      "Run `sqlite-axi schema <table-or-view>` for one table or view",
     ]);
   }
   const db = openDb(dbPath);
@@ -27,7 +27,7 @@ export function tablesCommand(args: string[]): Record<string, unknown> {
       database: dbPath,
       count: `${tables.length} tables`,
       tables,
-      help: ["Run `sqlite-axi schema <table>` for details"],
+      help: ["Run `sqlite-axi schema <table-or-view>` for details"],
     };
   } finally {
     db.close();

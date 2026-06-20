@@ -18,7 +18,7 @@ describe("schema", () => {
     expect(out.foreignKeys).toBeUndefined();
   });
 
-  it("requires a table name (VALIDATION_ERROR)", () => {
+  it("requires a table or view name (VALIDATION_ERROR)", () => {
     expect(() => schemaCommand([seedDb()])).toThrowError();
     try {
       schemaCommand([seedDb()]);
