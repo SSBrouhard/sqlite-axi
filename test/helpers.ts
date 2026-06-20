@@ -10,7 +10,7 @@ export function seedDb(): string {
   const db = new Database(path);
   db.exec(`
     CREATE TABLE users (
-      id INTEGER PRIMARY KEY,
+      id INTEGER PRIMARY KEY NOT NULL,
       email TEXT NOT NULL,
       name TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
