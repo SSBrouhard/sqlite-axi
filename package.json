@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
-    "@types/node": "^22.10.0",
+    "@types/node": "20.19.43",
     "tsx": "^4.19.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.0"
