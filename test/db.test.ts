@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   columns, foreignKeys, indexes, objectCounts, openDb, quoteIdent,
@@ -17,6 +20,18 @@ describe("db boundary", () => {
       openDb("/tmp/nope-" + Date.now() + ".db");
     } catch (e) {
       expect((e as { code: string }).code).toBe("NOT_FOUND");
+    }
+  });
+
+  it("throws INVALID_DB for a non-SQLite file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sqlite-axi-bad-"));
+    const path = join(dir, "bad.db");
+    writeFileSync(path, "this is not a sqlite database");
+    try {
+      openDb(path);
+      throw new Error("expected openDb to throw");
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe("INVALID_DB");
     }
   });
 

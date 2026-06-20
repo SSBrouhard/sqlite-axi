@@ -12,13 +12,18 @@ export function openDb(path: string): DB {
       "Run `sqlite-axi` with no arguments to auto-discover a database",
     ]);
   }
+  let db: Database.Database | undefined;
   try {
-    return new Database(path, { readonly: true });
+    db = new Database(path, { readonly: true });
+    // better-sqlite3 opens lazily; force a header read so a non-SQLite file fails here.
+    db.prepare("SELECT name FROM sqlite_master LIMIT 1").get();
   } catch {
+    try { db?.close(); } catch { /* ignore close error */ }
     throw new AxiError(`not a valid SQLite database: ${path}`, "INVALID_DB", [
       "Confirm the file is a SQLite database",
     ]);
   }
+  return db;
 }
 
 export function quoteIdent(name: string): string {
