@@ -1,0 +1,33 @@
+{
+  "name": "sqlite-axi",
+  "version": "0.1.0",
+  "description": "Inspect and query SQLite databases read-only, with token-efficient output — an AXI (Agent eXperience Interface).",
+  "keywords": ["axi", "agent", "cli", "sqlite", "database", "toon"],
+  "license": "MIT",
+  "author": "SSBrouhard",
+  "homepage": "https://github.com/SSBrouhard/sqlite-axi",
+  "repository": { "type": "git", "url": "git+https://github.com/SSBrouhard/sqlite-axi.git" },
+  "type": "module",
+  "bin": { "sqlite-axi": "dist/bin/sqlite-axi.js" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/bin/sqlite-axi.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@toon-format/toon": "^2.3.0",
+    "axi-sdk-js": "^0.1.7",
+    "better-sqlite3": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  }
+}
