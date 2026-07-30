@@ -10,7 +10,7 @@
   "type": "module",
   "bin": { "sqlite-axi": "dist/bin/sqlite-axi.js" },
   "files": ["dist", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/bin/sqlite-axi.ts",
