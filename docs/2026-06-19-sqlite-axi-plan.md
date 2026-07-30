@@ -6,7 +6,7 @@
 
 **Architecture:** `better-sqlite3` opened `{ readonly: true }` is the hard read-only layer; a `SELECT`/`EXPLAIN`-only allowlist gives clean errors. Pure modules (discover, resolve, validate, format) feed four pure command transforms; `db.ts` is the only impure boundary. The SDK (`axi-sdk-js`) handles dispatch and TOON; a custom `formatError` maps usage-error codes to exit 2.
 
-**Tech Stack:** TypeScript (ESM, NodeNext), `axi-sdk-js`, `better-sqlite3`, `@toon-format/toon`, vitest. Node ≥20.
+**Tech Stack:** TypeScript (ESM, NodeNext), `axi-sdk-js`, `better-sqlite3`, `@toon-format/toon`, vitest. Node ≥22.
 
 ---
 
@@ -52,7 +52,7 @@ test/*.test.ts          one per module
   "type": "module",
   "bin": { "sqlite-axi": "dist/bin/sqlite-axi.js" },
   "files": ["dist", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/bin/sqlite-axi.ts",
@@ -63,7 +63,7 @@ test/*.test.ts          one per module
   "dependencies": {
     "@toon-format/toon": "^2.3.0",
     "axi-sdk-js": "^0.1.7",
-    "better-sqlite3": "^12.0.0"
+    "better-sqlite3": "^13.0.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
@@ -2039,7 +2039,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
