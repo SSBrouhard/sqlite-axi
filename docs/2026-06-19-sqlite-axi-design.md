@@ -17,7 +17,7 @@ compact schema snapshot is a large token win, and read-only access sidesteps all
 
 ## Driver
 
-**`better-sqlite3`** (v12, requires Node ≥20). Synchronous API, ships prebuilt binaries.
+**`better-sqlite3`** (v13, requires Node ≥22). Synchronous API, ships prebuilt binaries.
 
 Open sequence (gives both clean AXI errors and a hard read-only guarantee):
 
@@ -242,6 +242,6 @@ them in a writable temp dir; the tool still opens targets read-only). Cover:
 
 ## Package & submission
 
-- `engines.node: ">=20"` (better-sqlite3 floor). `files`: `dist`, `README.md`, `LICENSE`.
+- `engines.node: ">=22"` (better-sqlite3 floor). `files`: `dist`, `README.md`, `LICENSE`.
 - Runtime deps: `axi-sdk-js`, `better-sqlite3`. MIT license, author SSBrouhard.
 - Repo `github.com/SSBrouhard/sqlite-axi`; PR adds one row to the AXI Community catalog.
