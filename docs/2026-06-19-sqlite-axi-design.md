@@ -33,9 +33,11 @@ if (!statSync(path, { throwIfNoEntry: false })?.isFile()) throw notFound(path);
 const db = new Database(path, { readonly: true });
 ```
 
-A failed `new Database(...)` (corrupt/non-SQLite file) is translated to an AxiError, never a raw
-throw. `node:sqlite` is intentionally avoided for v1 (Stability 1.2 release-candidate; raises the
-engine floor above the Node 18-era baseline).
+Open failures are translated to an AxiError, never a raw throw. Native addon load failures retain
+their cause as `SQLITE_RUNTIME_ERROR`; unreadable, locked, or otherwise unavailable databases use
+`DB_OPEN_ERROR`; and SQLite format or corruption errors use `INVALID_DB`. `node:sqlite` is
+intentionally avoided for v1 (Stability 1.2 release-candidate; raises the engine floor above the
+Node 18-era baseline).
 
 ## Architecture
 
@@ -206,7 +208,10 @@ implementation. Tests cover weird column names and aliases (`select 1 as "a,b"`,
 | --- | --- | --- |
 | No database discovered | `NO_DATABASE` | 1 |
 | Multiple discovered, none chosen | `DB_AMBIGUOUS` | 2 |
-| Path is not a file / not valid SQLite | `NOT_FOUND` / `INVALID_DB` | 1 |
+| Path is not a file | `NOT_FOUND` | 1 |
+| Invalid or corrupt SQLite file | `INVALID_DB` | 1 |
+| Native SQLite addon cannot load | `SQLITE_RUNTIME_ERROR` | 1 |
+| Database is unreadable, locked, or otherwise unavailable | `DB_OPEN_ERROR` | 1 |
 | Unknown table/view (schema/sample) | `NOT_FOUND` | 1 |
 | Non-read-only or multi-statement SQL | `READ_ONLY` | 2 |
 | SQL syntax / execution error | `QUERY_ERROR` | 1 |
