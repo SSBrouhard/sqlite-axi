@@ -17,8 +17,28 @@ export function openDb(path: string): DB {
     db = new Database(path, { readonly: true });
     // better-sqlite3 opens lazily; force a header read so a non-SQLite file fails here.
     db.prepare("SELECT name FROM sqlite_master LIMIT 1").get();
-  } catch {
+  } catch (error) {
     try { db?.close(); } catch { /* ignore close error */ }
+    const code =
+      error instanceof Error && "code" in error && typeof error.code === "string"
+        ? error.code
+        : "";
+    const message = error instanceof Error ? error.message : String(error);
+    if (code === "ERR_DLOPEN_FAILED") {
+      throw new AxiError(`failed to load SQLite runtime: ${message}`, "SQLITE_RUNTIME_ERROR", [
+        "Reinstall sqlite-axi after changing Node.js versions",
+      ]);
+    }
+    const invalidDatabase =
+      code === "SQLITE_NOTADB" ||
+      code === "SQLITE_FORMAT" ||
+      code === "SQLITE_CORRUPT" ||
+      code.startsWith("SQLITE_CORRUPT_");
+    if (!invalidDatabase) {
+      throw new AxiError(`failed to open SQLite database: ${path}: ${message}`, "DB_OPEN_ERROR", [
+        "Check that the database is readable and not locked",
+      ]);
+    }
     throw new AxiError(`not a valid SQLite database: ${path}`, "INVALID_DB", [
       "Confirm the file is a SQLite database",
     ]);
