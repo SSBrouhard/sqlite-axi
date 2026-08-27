@@ -13,9 +13,28 @@ describe("query", () => {
     expect(capped.rows).toBe("2 (capped, more rows available)");
   });
 
+  it("runs a read-only CTE SELECT", () => {
+    const out = queryCommand([seedDb(), "with x as (select 1 as n) select n from x"]);
+    expect(out.rows).toBe("1 (complete)");
+    expect(out.result).toEqual([{ n: 1 }]);
+  });
+
   it("rejects a write query before touching the database", () => {
     try {
       queryCommand([seedDb(), "delete from users"]);
+    } catch (e) {
+      expect((e as { code: string }).code).toBe("READ_ONLY");
+    }
+  });
+
+  it("rejects a write that slips through a CTE before touching the database", () => {
+    const db = seedDb();
+    try {
+      queryCommand([
+        db,
+        "with x as (select 'z@z.com') insert into users (email) select * from x",
+      ]);
+      throw new Error("expected write CTE to be rejected");
     } catch (e) {
       expect((e as { code: string }).code).toBe("READ_ONLY");
     }
