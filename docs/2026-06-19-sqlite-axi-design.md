@@ -160,19 +160,18 @@ result[12]{id,email}:
 1. **Hard layer:** `new Database(path, { readonly: true })` — the engine rejects every write.
 2. **Allowlist (`src/validate.ts`):** after stripping leading comments and confirming a **single**
    statement (quote/comment-aware semicolon scanning; trailing comments after a final semicolon are
-   fine), the SQL must match exactly one of three shapes (case-insensitive):
-   - `SELECT ...`
-   - `EXPLAIN SELECT ...`
-   - `EXPLAIN QUERY PLAN SELECT ...`
+   fine), only a read-only `SELECT` is accepted — including `WITH ... SELECT` (nested/`RECURSIVE`
+   CTEs whose bodies are themselves SELECT) and `EXPLAIN [QUERY PLAN]` of those shapes. The
+   user-facing statement of the allowlist lives in README ("Read-only guarantee"); the error
+   text is owned by `src/validate.ts`.
 
    Arbitrary `EXPLAIN <anything>` is **not** allowed — `EXPLAIN UPDATE ...` likely wouldn't mutate,
-   but it weakens the mental model, so v1 stays boring. DDL/DML, `ATTACH`/`DETACH`, `PRAGMA`, and
-   `WITH` are all rejected. Internal schema commands call `db.pragma()` / table-valued pragma
-   functions directly, bypassing this validator.
+   but it weakens the mental model. DDL/DML, `ATTACH`/`DETACH`, `PRAGMA`, write CTEs
+   (`WITH ... INSERT/UPDATE/DELETE` or a non-SELECT CTE body), and stacked statements are refused.
+   Internal schema commands call `db.pragma()` / table-valued pragma functions directly, bypassing
+   this validator.
 
-`WITH` is **excluded in v1** (SQLite CTEs can feed writes; robust validation is deferred to v2).
-A rejected statement → `error: only read-only queries are allowed (SELECT, EXPLAIN SELECT,
-EXPLAIN QUERY PLAN SELECT)`, code `READ_ONLY`, exit 2.
+A rejected statement → code `READ_ONLY`, exit 2.
 
 ## Identifier safety (table commands)
 
@@ -231,9 +230,10 @@ TDD with vitest against **real temporary SQLite files** seeded per test (better-
 them in a writable temp dir; the tool still opens targets read-only). Cover:
 
 - Discovery: single / none / multiple, junk-dir skipping; `[db]` vs table resolution.
-- Read-only validator: accept `SELECT`, `EXPLAIN SELECT`, `EXPLAIN QUERY PLAN SELECT`, semicolons
-  inside strings, and trailing comments after a final semicolon; reject `EXPLAIN UPDATE`, DML/DDL,
-  `PRAGMA`, `WITH`, stacked statements, `ATTACH`.
+- Read-only validator: accept `SELECT`, `WITH ... SELECT`, `EXPLAIN SELECT`, `EXPLAIN QUERY PLAN
+  SELECT` (including `EXPLAIN` of `WITH ... SELECT`), semicolons inside strings, and trailing
+  comments after a final semicolon; reject `EXPLAIN UPDATE`, DML/DDL, `PRAGMA`, write CTEs,
+  stacked statements, `ATTACH`.
 - Identifier safety: unknown table/view → `NOT_FOUND`; a table named with quotes/spaces is sampled
   correctly via the quoted identifier; schema introspection binds the name as a parameter.
 - Column-name handling: `select 1 as "a,b"` and names with spaces/quotes fall back to row-object
