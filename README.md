@@ -56,8 +56,9 @@ and caps rows at 1000;
 ## Read-only guarantee
 
 Two independent layers: the database is opened with SQLite's read-only flag (the engine rejects
-every write), and a validator accepts only `SELECT`, `EXPLAIN SELECT`, and `EXPLAIN QUERY PLAN
-SELECT`. Writes, `PRAGMA`, `WITH`, and stacked statements are refused with a structured error.
+every write), and a validator accepts only `SELECT`, `WITH ... SELECT`, `EXPLAIN SELECT`, and
+`EXPLAIN QUERY PLAN SELECT`. Writes, `PRAGMA`, write CTEs, and stacked statements are refused
+with a structured error.
 
 ## Agent integration
 

@@ -45,8 +45,8 @@ Examples:
 `,
   query: `sqlite-axi query [db] "<sql>" [--limit 50] [--full]
 
-Run a single read-only query: SELECT, EXPLAIN SELECT, or EXPLAIN QUERY PLAN SELECT.
-Writes, PRAGMA, WITH, and stacked statements are rejected.
+Run a single read-only query: SELECT, WITH ... SELECT, EXPLAIN SELECT, or EXPLAIN QUERY PLAN SELECT.
+Writes, PRAGMA, write CTEs (WITH ... INSERT/UPDATE/DELETE), and stacked statements are rejected.
 
 Flags:
   --limit <n>   Decimal max rows returned (default 50, max 1000)

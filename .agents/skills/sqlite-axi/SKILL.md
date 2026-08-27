@@ -24,7 +24,7 @@ npx -y sqlite-axi <command>
 - `sqlite-axi schema [db] <table-or-view>` — columns (type, pk, notnull, default), indexes, foreign keys.
 - `sqlite-axi sample [db] <table-or-view> [--limit 10] [--full]` — preview rows; cells truncate unless `--full`.
 - `sqlite-axi query [db] "<sql>" [--limit 50] [--full]` — a single read-only query
-  (`SELECT` / `EXPLAIN SELECT` / `EXPLAIN QUERY PLAN SELECT` only).
+  (`SELECT` / `WITH ... SELECT` / `EXPLAIN SELECT` / `EXPLAIN QUERY PLAN SELECT` only).
 
 ## Notes
 

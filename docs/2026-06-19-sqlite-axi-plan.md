@@ -1,10 +1,12 @@
 # sqlite-axi Implementation Plan
 
+> Historical v1 build plan. Live query allowlist: README ("Read-only guarantee") and `src/validate.ts` (`WITH ... SELECT` is accepted; write CTEs stay refused).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build `sqlite-axi`, a read-only AXI CLI that inspects and queries SQLite databases with token-efficient TOON output.
 
-**Architecture:** `better-sqlite3` opened `{ readonly: true }` is the hard read-only layer; a `SELECT`/`EXPLAIN`-only allowlist gives clean errors. Pure modules (discover, resolve, validate, format) feed four pure command transforms; `db.ts` is the only impure boundary. The SDK (`axi-sdk-js`) handles dispatch and TOON; a custom `formatError` maps usage-error codes to exit 2.
+**Architecture:** `better-sqlite3` opened `{ readonly: true }` is the hard read-only layer; a read-only SQL allowlist (see README / `src/validate.ts`) gives clean errors. Pure modules (discover, resolve, validate, format) feed four pure command transforms; `db.ts` is the only impure boundary. The SDK (`axi-sdk-js`) handles dispatch and TOON; a custom `formatError` maps usage-error codes to exit 2.
 
 **Tech Stack:** TypeScript (ESM, NodeNext), `axi-sdk-js`, `better-sqlite3`, `@toon-format/toon`, vitest. Node ≥22.
 
