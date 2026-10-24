@@ -7,7 +7,7 @@ import {
   columns, foreignKeys, indexes, objectCounts, openDb, quoteIdent,
   rowCount, runQuery, sample, tableExists, tableNames,
 } from "../src/db.js";
-import { seedDb, seedWeirdDb } from "./helpers.js";
+import { expectAxiError, seedDb, seedWeirdDb } from "./helpers.js";
 
 describe("db boundary", () => {
   it("opens read-only and rejects writes at the engine level", () => {
@@ -17,11 +17,10 @@ describe("db boundary", () => {
   });
 
   it("throws NOT_FOUND for a missing file", () => {
-    try {
-      openDb("/tmp/nope-" + Date.now() + ".db");
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("NOT_FOUND");
-    }
+    expectAxiError(
+      () => openDb("/tmp/nope-" + Date.now() + ".db"),
+      "NOT_FOUND",
+    );
   });
 
   it("throws INVALID_DB for a non-SQLite file", () => {

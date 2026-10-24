@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateReadOnly } from "../src/validate.js";
+import { expectAxiError } from "./helpers.js";
 
 describe("validateReadOnly", () => {
   it("accepts SELECT, EXPLAIN SELECT, EXPLAIN QUERY PLAN SELECT", () => {
@@ -61,11 +62,9 @@ describe("validateReadOnly", () => {
   });
 
   it("throws READ_ONLY for non-read statements", () => {
-    expect(() => validateReadOnly("delete from users")).toMatchObject;
-    try {
-      validateReadOnly("delete from users");
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("READ_ONLY");
-    }
+    expectAxiError(
+      () => validateReadOnly("delete from users"),
+      "READ_ONLY",
+    );
   });
 });

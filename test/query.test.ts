@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { queryCommand } from "../src/commands/query.js";
-import { seedDb } from "./helpers.js";
+import { expectAxiError, seedDb } from "./helpers.js";
 
 describe("query", () => {
   it("runs a SELECT and reports complete vs capped", () => {
@@ -20,11 +20,10 @@ describe("query", () => {
   });
 
   it("rejects a write query before touching the database", () => {
-    try {
-      queryCommand([seedDb(), "delete from users"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("READ_ONLY");
-    }
+    expectAxiError(
+      () => queryCommand([seedDb(), "delete from users"]),
+      "READ_ONLY",
+    );
   });
 
   it("rejects a write that slips through a CTE before touching the database", () => {
@@ -47,10 +46,9 @@ describe("query", () => {
   });
 
   it("maps a SQL syntax error to QUERY_ERROR", () => {
-    try {
-      queryCommand([seedDb(), "select * from nope_table"]);
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("QUERY_ERROR");
-    }
+    expectAxiError(
+      () => queryCommand([seedDb(), "select * from nope_table"]),
+      "QUERY_ERROR",
+    );
   });
 });
