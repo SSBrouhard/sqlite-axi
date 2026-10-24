@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveDb } from "../src/resolve.js";
-import { seedDb } from "./helpers.js";
+import { expectAxiError, seedDb } from "./helpers.js";
 
 describe("resolveDb", () => {
   it("prefers --db and leaves all positionals as command args", () => {
@@ -22,10 +22,9 @@ describe("resolveDb", () => {
   });
 
   it("throws NO_DATABASE when nothing is found", () => {
-    try {
-      resolveDb([], {}, "/tmp/definitely-empty-" + Date.now());
-    } catch (e) {
-      expect((e as { code: string }).code).toBe("NO_DATABASE");
-    }
+    expectAxiError(
+      () => resolveDb([], {}, "/tmp/definitely-empty-" + Date.now()),
+      "NO_DATABASE",
+    );
   });
 });
