@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +15,7 @@ concurrency:
 
 jobs:
   test:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -28,7 +30,7 @@ jobs:
 
   notify-openbot:
     needs: test
-    if: ${{ failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ always() && github.ref == 'refs/heads/main' && ((github.event_name == 'push' && needs.test.result == 'failure') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -41,6 +43,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           SERVER_URL: ${{ github.server_url }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           python3 - <<'PY'
           import hashlib, hmac, json, os, time, urllib.error, urllib.request
@@ -54,6 +57,7 @@ jobs:
           delivery = f'github-{run_id}-{attempt}'
           body = json.dumps({'type': 'github.ci.failure', 'data': {
               'repository': repository, 'branch': 'main', 'conclusion': 'failure',
+              'test': os.environ['EVENT_NAME'] == 'workflow_dispatch',
               'run_url': f"{os.environ['SERVER_URL']}/{repository}/actions/runs/{run_id}",
           }}, separators=(',', ':')).encode()
           for wait in (0, 15, 45):
